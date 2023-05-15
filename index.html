@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Javascript Project</title>
+    <style>
+        canvas{
+            border-left: 4px dashed #000;
+            border-right: 4px dashed #000;
+            border-bottom: 4px solid #8f8f8f;
+            background-color: #8f8f8f;
+            position: fixed;
+            left: 50%;
+            transform: translate(-50%, -28px);
+            width: 450px;
+            height: 100%;
+        }
+        body{
+            background-color: #00aa0e;
+        }
+        .startButton{
+            width: 180px;
+            height: 60px;
+            margin-top: 320px;
+            margin-left: 100px;
+            border: 2px solid #ffffff;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            border-bottom-right-radius: 15px;
+            border-bottom-left-radius: 15px;
+            color : #fff;
+            background-color: #000;
+            float: left;
+            position: absolute;
+        }
+        .stopButton{
+            width: 180px;
+            height: 60px;
+            margin-top: 380px;
+            margin-left: 100px;
+            border: 2px solid #ffffff;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            border-bottom-right-radius: 15px;
+            border-bottom-left-radius: 15px;
+            color : #fff;
+            background-color: #000;
+        }
+        #score{
+            width: 180px;
+            height: 40px;
+            color: white;
+            margin-top: -380px;
+            margin-left: 80%;
+            float: left;
+            background-color: #000;
+            border: 2px solid #ffffff;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+            border-bottom-right-radius: 15px;
+            border-bottom-left-radius: 15px;
+            text-align: center;
+            padding-top: 20px;
+        }
+
+        </style>
+</head>
+<body onload="makeAlert()">
+    <button class = "startButton" onclick="start()">START</button><br>
+    <button class = "stopButton" onclick="stop()">STOP</button>
+    <div id="score">SCORE:</div>
+    <canvas id="canvas"></canvas>
+
+   
+    <script>
+        //DEĞİŞKEN TANIMLAMALARI
+
+        var canvas = document.querySelector("#canvas");
+        var ctx = canvas.getContext("2d");
+
+        var img = new Image();
+        img.src = "myCar.png";
+
+        var img2 = new Image();
+        img2.src = "car2.png";
+
+        var img3 = new Image();
+        img3.src = "car2-1.png";
+
+
+        //Klavye ile kontrol edilecek aracın hızı ve default konumu için değişkenler
+        var myCarSpeedX = 0;
+        var myCarSpeedY = 0;
+        var myCarX = 170;
+        var myCarY = 850;
+
+        //Oyunda haraket eden cisimler için requestAnimationFrame() metodunun çalışıp çalışmamasını kontrol eden boolean değişken. Animasyon durdurulmak istendiğinde clearAnimationFrame() metodunda sonra bu değişken false yapılıyor. Bu sayede requestAnimationFrame() tekrar çalışmıyor.
+        var request;
+
+        var keys = [];
+
+        var linesLeft = [];
+        var linesRight = [];
+
+        //Sol şeritte ve sağ şeritte oluşturulacak araçların animasyonunu sağlamak için y konumunu ifade eden değişkenler
+        var enemyCarLeftY1 = 0;
+        var enemyCarLeftY2 = 0;
+        var enemyCarRightY1 = canvas.height;
+        var enemyCarRightY2 = canvas.height;
+
+        var enemyCars = [];
+
+        //Araçlara çarpılması durumunda oyunun bitmesini kontrol etmek için 4 şeritteki araçların koordinatları
+        var firstLineCarLeft = 0;
+        var firstLineCarRight = 0;
+        var firstLineCarTop = 0;
+        var firstLineCarBottom = 0;
+
+        var secondLineCarLeft = 0;
+        var secondLineCarRight = 0;
+        var secondLineCarTop = 0;
+        var secondLineCarBottom = 0;
+
+        var thirdLineCarLeft = 0;
+        var thirdLineCarRight = 0;
+        var thirdLineCarTop = 0;
+        var thirdLineCarBottom = 0;
+
+        var fourthLineCarLeft = 0;
+        var fourthLineCarRight = 0;
+        var fourthLineCarTop = 0;
+        var fourthLineCarBottom = 0;
+
+        var score = 0;
+
+       function makeAlert() {
+            alert("OYUNU OYNAMAK İÇİN START VE STOP BUTONLARINI KULLANMANIZ YETERLİDİR. İYİ OYUNLAR!");
+       }
+
+        //Soldaki ve sağdaki şeritlerin component metoduyla oluşturulup arraylere atanması
+        for(var i=0;i<8;i++){
+            linesLeft[i] = new component(95, i*140, 10, 80, "white");
+        }
+        for(var i=0;i<8;i++){
+            linesRight[i] = new component(305, i*140, 10, 80, "white");
+        }         
+          
+        //Klavye ile hareket ettirilecek aracın klavyeden bir tuşa basıldığında istenilen tuşun basılıp basılmadığını kontrol etmek için kullanılacak arraylere kaydeden metodlar
+        document.addEventListener('keydown', function (e) {
+            keys[e.keyCode] = (e.type == "keydown");
+        })
+        document.addEventListener('keyup', function (e) {
+            keys[e.keyCode] = false;            
+        })
+
+
+        //Bu fonksiyonu drawImage metodu ile eklenen resimlerin küçültüldüğünde bozulması sorunu için canvası ölçeklendirmek amacıyla oluşturdum.
+        function scaleImg(source,scaleFactor){
+            var tempCanvas=document.createElement('canvas');
+            var tempCtx=tempCanvas.getContext('2d');
+            var w=source.width*scaleFactor;
+            var h=source.height*scaleFactor;
+            tempCanvas.width=w;
+            tempCanvas.height=h;
+            tempCtx.drawImage(source,0,0,w,h);
+            return(tempCanvas);
+        }
+
+        //Şeritlerin özellikleriyle nesne oluşturmak için metod
+        function component(x, y, width, height, color) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.color = color;
+        }
+
+        //Düşman araçların özellikleriyle nesne oluşturmak için metod
+        function enemyCar(source,x,y,width,height){
+            this.source = source;
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+        }
+
+        //Oyunda şeritlerin oluşturulduğu, kontrol edilecek aracın oluşturulduğu, bunların hareket ettirildiği, oyunun bitip bitmemesinin sağlandığı ve skorun artırılmasını sağlayan metod
+        function game() {
+
+            request = true;
+
+            //Ölçeklendirme işlemi
+            var c=scaleImg(img,3.2);
+            canvas.width=c.width/2;
+            canvas.height=c.height/2;
+
+            //Sol ve sağ için arraylerde oluşturulan şerit nesnelerinin ekranda gösterilmesi  
+            for(var i=0;i<linesLeft.length;i++){
+                ctx.fillStyle = linesLeft[i].color;
+                ctx.fillRect(linesLeft[i].x,linesLeft[i].y,linesLeft[i].width,linesLeft[i].height);
+
+                ctx.fillRect(linesRight[i].x,linesRight[i].y,linesRight[i].width,linesRight[i].height);
+            }
+
+            //Ortadaki şeridin ekranda gösterilmesi
+            ctx.fillStyle = "#ba8b05";
+            ctx.fillRect(200,0,10,1000);
+
+            //Şeritlerin hareket ettirilmesi
+            for(var i = 0; i<linesLeft.length;i++){
+                linesLeft[i].y += 10;
+                linesRight[i].y += 10;
+            }
+
+            //Ekranın altına geçen şeritlerin y konumu sıfırlanıyor. Böylece şerit akışı sürekli devam ediyor.
+            for(var i = 0; i<linesLeft.length;i++){
+                if(linesLeft[i].y > canvas.height){
+                    linesLeft[i].y = 0;
+                }
+                if(linesRight[i].y > canvas.height){
+                    linesRight[i].y = 0;
+                }
+            }
+           
+
+            myCarSpeedX = 0;
+            myCarSpeedY = 0;
+            
+            //Klavyede basılan tuşun kontrolü
+            //Çapraz hareketler için birden fazla tuşa basılması durumunda arraylerde ilgili tuşun indexinin değeri true oluyor ve 2 hareket sağlanıyor. Bir tuştan elimizi çektiğimizde ise o değer false oluyor diğer değer halen true kalıyor.
+            if (keys && keys[37]) {myCarSpeedX = -3;}
+            if (keys && keys[39]) {myCarSpeedX = 3;}
+            if (keys && keys[38]) {myCarSpeedY = -4.5;}
+            if (keys && keys[40]) {myCarSpeedY = 5;}
+
+            myCarX += myCarSpeedX;
+            myCarY += myCarSpeedY;
+
+            //Kontrol edilen araç
+            ctx.drawImage(c,myCarX,myCarY,70,90);
+
+            //Oyun devam kontrolü için hareket ettirdiğimiz aracın koordinatları
+            var myLeft = myCarX;
+            var myRight = myCarX + 70;
+            var myTop = myCarY;
+            var myBottom = myCarY + 90;
+
+
+            //Aracımızın herhangi bir aracın sınırları içinde olmadığını kontrol eden değişken
+            //Eğer başka bir aracın sınırlarına girersek yani çarparsak bu değişken false oluyor
+            var didNotCrash = ((myBottom < firstLineCarTop) ||
+                (myTop > firstLineCarBottom) ||
+                (myRight < firstLineCarLeft) ||
+                (myLeft > firstLineCarRight)) && 
+
+                ((myBottom < secondLineCarTop) ||
+                (myTop > secondLineCarBottom) ||
+                (myRight < secondLineCarLeft) ||
+                (myLeft > secondLineCarRight)) &&
+
+                ((myBottom < thirdLineCarTop) ||
+                (myTop > thirdLineCarBottom) ||
+                (myRight < thirdLineCarLeft) ||
+                (myLeft > thirdLineCarRight)) &&
+
+                ((myBottom < fourthLineCarTop) ||
+                (myTop > fourthLineCarBottom) ||
+                (myRight < fourthLineCarLeft) ||
+                (myLeft > fourthLineCarRight))
+
+
+            //Aracımızın yolun solundan ve sağından dışarı çıkması durumunda didNotCrash değişkeni ile oyunu sonlandıran kontrol bloğu
+            if(myLeft<0 || myRight > canvas.width){
+                didNotCrash = false;
+            }
+
+            //Oyunu bitirmek için oyun ekranı animasyonu duruyor. GAME OVER yazısı gösteriliyor. Alert ile OK tuşuna basıldığında sayfa yenilenip yeni oyuna hazır hale getiriliyor.
+            if (!didNotCrash) {
+
+                cancelAnimationFrame(request);
+                request = false;
+      
+                alert("GAME OVER!");
+                
+                location.reload(); 
+
+            }
+            //Oyun devam etmeyecekse score artırılıyor ve animasyonu sağlayan satır çalıştırılıyor.
+            else{
+                score += 0.1;
+                var scoreScreen = document.querySelector("#score");
+                scoreScreen.textContent = "SCORE:"+(parseInt(score,10));
+            }
+            if(request){
+                request = requestAnimationFrame(game);
+            }
+            
+        }
+
+
+        //Bu fonksiyon 1. ve 2. şeritten gelecek araçların farklı zaman aralıklarında random değere yani %50 olasılıkla pushEnemyCarLeft1() metoduyla oluşturulmasını sağlıyor
+        function pushEnemyCarLeftInterval() {
+            var interval = setInterval(function(){
+                var randomNumber = Math.floor(Math.random() * 2);
+
+                if(randomNumber == 0){
+                    pushEnemyCarLeft1();
+                }      
+
+            },2250);
+
+            var interval2 = setInterval(function(){
+                var randomNumber = Math.floor(Math.random() * 2);
+                if(randomNumber == 0){
+                    pushEnemyCarLeft2();
+                }
+                
+            },1500);
+        }
+
+        function pushEnemyCarRightInterval() {
+            var interval = setInterval(function(){
+                var randomNumber = Math.floor(Math.random() * 2);
+
+                if(randomNumber == 0){
+                    pushEnemyCarRight1();
+                }
+            },3000);
+
+            var interval2 = setInterval(function(){
+                var randomNumber = Math.floor(Math.random() * 2);
+
+                if(randomNumber == 0){
+                    pushEnemyCarRight2();
+                }
+            },4500);
+        }
+        
+        function pushEnemyCarLeft1() {
+
+            //1. Şeritteki aracın oluşturulması animasyon için konumunun ayarlanması ve ekranda gösterilmesi
+            var enemyCarLeft1 = new enemyCar(img2, 18 + 0 * 100, 0, 70, 90);
+            enemyCarLeftY1 += 8;
+            ctx.drawImage(enemyCarLeft1.source,enemyCarLeft1.x,enemyCarLeftY1,enemyCarLeft1.width,enemyCarLeft1.height);
+
+            //Oyun devam koşulu için düşman aracın koordinatlarının alınması
+            firstLineCarLeft = enemyCarLeft1.x;
+            firstLineCarRight = enemyCarLeft1.x + enemyCarLeft1.width;
+            firstLineCarTop = enemyCarLeftY1;
+            firstLineCarBottom = enemyCarLeftY1 + enemyCarLeft1.height;
+        
+            //Araç ekran dışına çıktığında konumunun tekrar üste alınması
+            if(enemyCarLeftY1 > canvas.height){
+                enemyCarLeftY1 = -80;
+                cancelAnimationFrame(pushEnemyCarLeft1);
+            }
+            else{
+                if(request){
+                    requestAnimationFrame(pushEnemyCarLeft1);
+                }
+                
+            }
+            
+        }
+
+        function pushEnemyCarLeft2() {
+
+            var enemyCarLeft2 = new enemyCar(img2, 18 + 1 * 100, 0, 70, 90);
+            enemyCarLeftY2 += 12;
+            ctx.drawImage(enemyCarLeft2.source,enemyCarLeft2.x,enemyCarLeftY2,enemyCarLeft2.width,enemyCarLeft2.height);
+
+            secondLineCarLeft = enemyCarLeft2.x;
+            secondLineCarRight = enemyCarLeft2.x + enemyCarLeft2.width;
+            secondLineCarTop = enemyCarLeftY2;
+            secondLineCarBottom = enemyCarLeftY2 + enemyCarLeft2.height;
+
+            if(enemyCarLeftY2 > canvas.height){
+                enemyCarLeftY2 = -80;
+                cancelAnimationFrame(pushEnemyCarLeft2);
+            }
+            else{
+                if(request){
+                    requestAnimationFrame(pushEnemyCarLeft2);
+                }
+            }
+            
+        }
+
+        function pushEnemyCarRight1() {
+
+            var enemyCarRight1 = new enemyCar(img3, 18 + 2 * 100, 0, 70, 90);
+            enemyCarRightY1 += -6;
+            ctx.drawImage(enemyCarRight1.source, enemyCarRight1.x, enemyCarRightY1, enemyCarRight1.width, enemyCarRight1.height);
+
+            thirdLineCarLeft = enemyCarRight1.x;
+            thirdLineCarRight = enemyCarRight1.x + enemyCarRight1.width;
+            thirdLineCarTop = enemyCarRightY1;
+            thirdLineCarBottom = enemyCarRightY1 + enemyCarRight1.height;
+
+            if (enemyCarRightY1 < -80) {
+                enemyCarRightY1 = canvas.height;
+                cancelAnimationFrame(pushEnemyCarRight1);
+            }
+            else {
+                if(request){
+                    requestAnimationFrame(pushEnemyCarRight1);
+                }
+            }
+
+
+        }
+        function pushEnemyCarRight2() {
+
+            var enemyCarRight2 = new enemyCar(img3, 18 + 3 * 100, 0, 70, 90);
+            enemyCarRightY2 += -4;
+            ctx.drawImage(enemyCarRight2.source, enemyCarRight2.x, enemyCarRightY2, enemyCarRight2.width, enemyCarRight2.height);
+
+            fourthLineCarLeft = enemyCarRight2.x;
+            fourthLineCarRight = enemyCarRight2.x + enemyCarRight2.width;
+            fourthLineCarTop = enemyCarRightY2;
+            fourthLineCarBottom = enemyCarRightY2 + enemyCarRight2.height;
+
+            if (enemyCarRightY2 < -80) {
+                enemyCarRightY2 = canvas.height;
+                cancelAnimationFrame(pushEnemyCarRight2);
+            }
+            else {
+                if(request){
+                    requestAnimationFrame(pushEnemyCarRight2);
+                }
+            }
+        }
+        
+        //Ekrandaki start butonuna basıldığında oyunun başlamasının sağlandığı metodların çağrılması
+        function start() {
+                game();
+
+                pushEnemyCarLeft1();
+                pushEnemyCarLeft2();
+                pushEnemyCarRight1();
+                pushEnemyCarRight2();
+                pushEnemyCarLeftInterval();
+                pushEnemyCarRightInterval();
+
+        }
+        //Stop butonuna basıldığında ise yeni oyuna başlayabilmek için sayfanın yenilenmesi
+        function stop(){
+            location.reload();
+        }
+        
+    
+    </script>
+</body>
+</html>
